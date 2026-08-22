@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "boundary"
-version = "0.1.0"
+version = "0.4.0"
 description = "AI-first policy-as-code security scanner built on Open Policy Agent"
 readme = "README.md"
 license = { file = "LICENSE" }

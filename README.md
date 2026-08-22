@@ -118,7 +118,7 @@ finding, proposes diffs driven by each finding's `fix_hint` and
 | `terraform` | `BND-TF-0xx` | unencrypted S3/EBS/RDS, public ACLs, `0.0.0.0/0` ingress, IAM `*`/`*`, hardcoded secrets |
 | `docker` | `BND-DK-0xx` | root user, unpinned base images, secrets in ENV/ARG, `curl \| sh` |
 | `kubernetes` | `BND-K8-0xx` | privileged pods, host namespaces, hostPath, missing limits, literal env secrets |
-| `mcp` | `BND-MCP-0xx` | secrets in server env, http:// transports, unpinned `npx -y` packages, filesystem servers rooted at `/` |
+| `mcp` | `BND-MCP-0xx` | secrets in server env, http:// transports, unpinned `npx -y` packages, filesystem servers rooted at `/` — any `.json` file with an `mcpServers` key is detected by content, not filename, so e.g. Claude Code's own `~/.claude.json` is picked up too |
 | `skills` | `BND-SK-0xx` | instruction-hijacking phrasing, credential-store access, obfuscated payloads, exfiltrating scripts |
 
 Every policy is one Rego file whose `# METADATA` block carries its id,
