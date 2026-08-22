@@ -30,6 +30,13 @@ inputs:
       `permissions: pull-requests: write`; only works for PRs from the same
       repository (GITHUB_TOKEN is read-only on fork PRs by design).
     default: "true"
+  github-token:
+    description: >
+      Token used to post the PR summary comment. Defaults to the job's
+      GITHUB_TOKEN, which posts as github-actions[bot]. Pass a GitHub App
+      installation token (e.g. from actions/create-github-app-token) instead
+      to have comments show up under a distinct bot identity.
+    default: ${{ github.token }}
 
 outputs:
   json:
@@ -91,6 +98,7 @@ runs:
       if: ${{ github.event_name == 'pull_request' && inputs.comment-on-pr == 'true' }}
       uses: actions/github-script@v7
       with:
+        github-token: ${{ inputs.github-token }}
         script: |
           const fs = require('fs');
           const marker = '<!-- boundary-scan-summary -->';

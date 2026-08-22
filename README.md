@@ -79,6 +79,22 @@ PRs from the same repository — `GITHUB_TOKEN` is read-only on fork PRs by
 GitHub's design, so a fork-accepting public repo would need a GitHub App (or
 `pull_request_target` handled carefully) instead.
 
+By default the comment posts as `github-actions[bot]` (the job's
+`GITHUB_TOKEN`). For a distinct bot identity, mint a GitHub App installation
+token and pass it via `github-token`:
+
+```yaml
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.BOUNDARY_APP_ID }}
+          private-key: ${{ secrets.BOUNDARY_APP_PRIVATE_KEY }}
+      - uses: andrewblooman/boundary/action@main
+        with:
+          path: .
+          github-token: ${{ steps.app-token.outputs.token }}
+```
+
 ## Claude Code integration
 
 Symlink the bundled skill and ask Claude to scan:
