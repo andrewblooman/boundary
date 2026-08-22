@@ -14,7 +14,7 @@ from boundary import __version__
 from boundary.models import ScanResult
 
 SCHEMA_URL = (
-    "https://raw.githubusercontent.com/andyblooman/boundary/main/"
+    "https://raw.githubusercontent.com/andrewblooman/boundary/main/"
     "schemas/boundary-result.schema.json"
 )
 

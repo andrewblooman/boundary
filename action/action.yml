@@ -23,11 +23,21 @@ inputs:
   opa-version:
     description: "OPA version to install"
     default: "1.19.1"
+  comment-on-pr:
+    description: >
+      Post (and keep updated) a summary comment on the triggering pull request.
+      No-op outside pull_request events. Requires the calling job to grant
+      `permissions: pull-requests: write`; only works for PRs from the same
+      repository (GITHUB_TOKEN is read-only on fork PRs by design).
+    default: "true"
 
 outputs:
   json:
     description: "Path to the Boundary JSON result file"
     value: ${{ steps.scan.outputs.json }}
+  markdown:
+    description: "Path to the Boundary Markdown summary file"
+    value: ${{ steps.scan.outputs.markdown }}
 
 runs:
   using: "composite"
@@ -68,6 +78,7 @@ runs:
           --format md --output boundary-summary.md --fail-on NEVER
         cat boundary-summary.md >> "$GITHUB_STEP_SUMMARY"
         echo "json=boundary-results.json" >> "$GITHUB_OUTPUT"
+        echo "markdown=boundary-summary.md" >> "$GITHUB_OUTPUT"
 
     - name: Upload SARIF to Code Scanning
       if: ${{ inputs.upload-sarif == 'true' }}
@@ -75,6 +86,36 @@ runs:
       with:
         sarif_file: boundary-results.sarif
         category: boundary
+
+    - name: Comment on PR
+      if: ${{ github.event_name == 'pull_request' && inputs.comment-on-pr == 'true' }}
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const marker = '<!-- boundary-scan-summary -->';
+          let summary = fs.readFileSync('${{ steps.scan.outputs.markdown }}', 'utf8');
+          const sha = context.payload.pull_request.head.sha.slice(0, 7);
+          const footer = `<sub>Boundary scan of \`${sha}\`. This comment is updated on every push to this PR.</sub>`;
+          const budget = 65000 - marker.length - footer.length - 200; // GitHub's 65536 comment cap
+          if (summary.length > budget) {
+            summary = summary.slice(0, budget) +
+              '\n\n> ⚠️ Output truncated — see the full results in the job summary or the `json`/`sarif` artifacts.';
+          }
+          const body = [marker, summary, '', footer].join('\n');
+
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner, repo, issue_number, per_page: 100,
+          });
+          const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+          if (existing) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+          }
 
     - name: Enforce severity gate
       shell: bash

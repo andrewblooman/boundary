@@ -21,7 +21,7 @@ the AI layer reading the scan output.
 curl -sSL -o ~/.local/bin/opa \
   https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static && chmod +x ~/.local/bin/opa
 
-git clone https://github.com/andyblooman/boundary && cd boundary
+git clone https://github.com/andrewblooman/boundary && cd boundary
 python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ```
 
@@ -60,17 +60,24 @@ jobs:
   boundary:
     runs-on: ubuntu-latest
     permissions:
-      security-events: write   # for SARIF upload
       contents: read
+      security-events: write   # for SARIF upload
+      pull-requests: write     # for the PR summary comment
     steps:
       - uses: actions/checkout@v4
-      - uses: andyblooman/boundary/action@main
+      - uses: andrewblooman/boundary/action@main
         with:
           path: .
           fail-on: HIGH        # gate the job on findings
 ```
 
-Findings appear as PR annotations (via Code Scanning) and in the job summary.
+Findings appear three ways: as **PR annotations** (via Code Scanning, from the
+SARIF upload), as a **summary comment on the PR** (kept updated in place on
+each push — set `comment-on-pr: "false"` to disable), and in the **job
+summary**. The comment requires `pull-requests: write` and only works for
+PRs from the same repository — `GITHUB_TOKEN` is read-only on fork PRs by
+GitHub's design, so a fork-accepting public repo would need a GitHub App (or
+`pull_request_target` handled carefully) instead.
 
 ## Claude Code integration
 

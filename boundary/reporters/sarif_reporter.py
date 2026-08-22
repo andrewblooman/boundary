@@ -50,7 +50,7 @@ def to_sarif(result: ScanResult) -> str:
         "runs": [{
             "tool": {"driver": {
                 "name": "boundary",
-                "informationUri": "https://github.com/andyblooman/boundary",
+                "informationUri": "https://github.com/andrewblooman/boundary",
                 "version": __version__,
                 "rules": rules,
             }},
