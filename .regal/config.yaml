@@ -1,0 +1,28 @@
+# Regal lint configuration for Boundary policies.
+rules:
+  idiomatic:
+    # Boundary's engine queries data.boundary.<kind> wholesale; per-rule
+    # entrypoint annotations are not part of the contract.
+    no-defined-entrypoint:
+      level: ignore
+    directory-package-mismatch:
+      # policies/<kind>/<policy>.rego maps to boundary.<kind>.<policy> without
+      # a redundant leading boundary/ directory.
+      level: ignore
+  style:
+    line-length:
+      level: error
+      max-line-length: 120
+      ignore:
+        files:
+          - "*_test.rego"
+    # object.get with a default is used deliberately for optional fields on
+    # heterogeneous adapter output.
+    prefer-some-in-iteration:
+      level: error
+  custom:
+    naming-convention:
+      level: error
+      conventions:
+        - targets: [package]
+          pattern: '^boundary(\.[a-z0-9_]+)*$'

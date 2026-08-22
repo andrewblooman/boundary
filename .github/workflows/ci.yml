@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  OPA_VERSION: "1.19.1"
+  REGAL_VERSION: "0.42.0"
+
+jobs:
+  policies:
+    name: Policy tests & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OPA and Regal
+        run: |
+          curl -sSL -o /usr/local/bin/opa \
+            "https://openpolicyagent.org/downloads/v${OPA_VERSION}/opa_linux_amd64_static"
+          curl -sSL -o /usr/local/bin/regal \
+            "https://github.com/open-policy-agent/regal/releases/download/v${REGAL_VERSION}/regal_Linux_x86_64"
+          chmod +x /usr/local/bin/opa /usr/local/bin/regal
+
+      - name: opa check (strict)
+        run: opa check --strict --v1-compatible policies/
+
+      - name: opa fmt
+        run: opa fmt --v1-compatible --fail policies/ tests/policies/
+
+      - name: regal lint
+        run: regal lint policies/ tests/policies/
+
+      - name: opa test
+        run: opa test -v policies/ tests/policies/
+
+  python:
+    name: Python tests & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install OPA
+        run: |
+          curl -sSL -o /usr/local/bin/opa \
+            "https://openpolicyagent.org/downloads/v${OPA_VERSION}/opa_linux_amd64_static"
+          chmod +x /usr/local/bin/opa
+
+      - name: Install package
+        run: pip install -e ".[dev]"
+
+      - name: ruff
+        run: ruff check boundary/ tests/python/
+
+      - name: pytest
+        run: pytest -q
+
+  self-scan:
+    name: Boundary self-scan (dogfood)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Scan the known-bad fixtures and assert findings exist (the action
+      # itself gates on HIGH, so we run with fail-on NEVER and check output).
+      - name: Scan fixtures with the action
+        uses: ./action
+        with:
+          path: fixtures
+          fail-on: "NEVER"
+          upload-sarif: "false"
+
+      - name: Assert the scanner still finds the seeded issues
+        run: |
+          python -c "
+          import json
+          d = json.load(open('boundary-results.json'))
+          assert d['summary']['total'] >= 35, d['summary']
+          assert d['summary']['by_severity']['CRITICAL'] >= 10, d['summary']
+          print('self-scan OK:', d['summary']['total'], 'findings')
+          "

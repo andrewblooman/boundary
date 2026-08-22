@@ -11,3 +11,18 @@ opa-debug-js
 *.api-txt
 *.exe
 *.log
+
+# secrets
+.env
+
+# python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# local scan output
+boundary.json
+boundary-results.*
+boundary-summary.md

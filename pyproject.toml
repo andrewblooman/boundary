@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "boundary"
+version = "0.1.0"
+description = "AI-first policy-as-code security scanner built on Open Policy Agent"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.14"
+authors = [{ name = "Andy Blooman" }]
+dependencies = [
+    "typer>=0.15",
+    "pyyaml>=6.0",
+    "python-hcl2>=6.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.9",
+    "jsonschema>=4.23",
+]
+
+[project.scripts]
+boundary = "boundary.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["boundary*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "S"]
+ignore = ["S603"]  # subprocess calls are to the pinned opa binary, args are never shell-interpolated
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S108"]
+"boundary/cli.py" = ["B008"]  # typer's documented Option/Argument default pattern
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]

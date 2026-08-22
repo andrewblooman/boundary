@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: legacy-app
+spec:
+  replicas: 1
+  template:
+    spec:
+      hostNetwork: true
+      volumes:
+        - name: host
+          hostPath:
+            path: /var/run/docker.sock
+      containers:
+        - name: app
+          image: registry.local/app:latest
+          env:
+            - name: DB_PASSWORD
+              value: FAKE-PASSWORD-00
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["SYS_ADMIN"]
