@@ -1,7 +1,10 @@
 """MCP adapter: server definitions from MCP config files.
 
-Recognizes files whose JSON contains an mcpServers/servers mapping
-(.mcp.json, mcp.json, claude_desktop_config.json, .claude settings, ...).
+Recognizes any .json file whose content contains an mcpServers/servers
+mapping -- by content, not filename, the same approach the kubernetes
+adapter uses for YAML. Filename-only detection missed real-world configs
+like Claude Code's own ~/.claude.json, which carries an mcpServers key but
+whose name matches neither ".mcp.json" nor "claude_desktop_config.json".
 Normalized input:
 
     {"kind": "mcp", "file": ".mcp.json", "servers": [
@@ -18,7 +21,6 @@ from pathlib import Path
 from boundary.models import ScanTarget
 
 _SERVER_KEYS = ("mcpServers", "mcp_servers", "servers")
-_NAME_HINTS = ("mcp", "claude_desktop_config")
 
 
 def discover(root: Path):
@@ -26,7 +28,7 @@ def discover(root: Path):
 
     targets = []
     for path in walk_files(root):
-        if path.suffix != ".json" or not any(h in path.name.lower() for h in _NAME_HINTS):
+        if path.suffix != ".json":
             continue
         target = parse_file(path)
         if target is not None:

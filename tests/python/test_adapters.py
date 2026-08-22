@@ -120,6 +120,18 @@ def test_mcp_ignores_unrelated_json(tmp_path):
     assert mcp.discover(tmp_path) == []
 
 
+def test_mcp_detects_by_content_not_filename(tmp_path):
+    # Claude Code's own config (~/.claude.json) carries mcpServers but its
+    # name matches no filename heuristic -- detection must be content-based.
+    (tmp_path / ".claude.json").write_text(json.dumps({
+        "mcpServers": {"snyk": {"command": "snyk-mcp", "args": []}},
+        "unrelatedState": {"lots": "of other stuff"},
+    }))
+    targets = mcp.discover(tmp_path)
+    assert len(targets) == 1
+    assert targets[0].input_doc["servers"][0]["name"] == "snyk"
+
+
 def test_skills_frontmatter_body_scripts(fixtures):
     targets = skills.discover(fixtures / "skills" / "bad")
     assert len(targets) == 1
