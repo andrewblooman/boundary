@@ -1,0 +1,43 @@
+resource "aws_s3_bucket" "data" {
+  bucket = "corp-data"
+  acl    = "public-read"
+}
+
+resource "aws_security_group" "web" {
+  name = "web"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_db_instance" "db" {
+  engine              = "postgres"
+  publicly_accessible = true
+  password            = "FAKE-PASSWORD-FOR-TESTS"
+}
+
+resource "aws_iam_policy" "admin" {
+  name   = "admin"
+  policy = "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}"
+}
+
+resource "aws_kms_key" "key" {
+  description = "app key"
+}
+
+resource "aws_ebs_volume" "vol" {
+  size = 40
+}
+
+resource "aws_lb_listener" "http" {
+  protocol = "HTTP"
+  port     = 80
+
+  default_action {
+    type = "forward"
+  }
+}

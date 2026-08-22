@@ -1,0 +1,88 @@
+name: "Boundary policy scan"
+description: >
+  AI-first policy-as-code security scan (OPA) for Terraform, Dockerfiles,
+  Kubernetes manifests, MCP configs, and agent skills.
+author: "Andy Blooman"
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  path:
+    description: "File or directory to scan"
+    default: "."
+  targets:
+    description: "Comma-separated kinds (terraform,docker,kubernetes,mcp,skills); empty = all"
+    default: ""
+  fail-on:
+    description: "Fail the job when findings at/above this severity exist (CRITICAL|HIGH|MEDIUM|LOW|INFO|NEVER)"
+    default: "HIGH"
+  upload-sarif:
+    description: "Upload results to GitHub Code Scanning"
+    default: "true"
+  opa-version:
+    description: "OPA version to install"
+    default: "1.19.1"
+
+outputs:
+  json:
+    description: "Path to the Boundary JSON result file"
+    value: ${{ steps.scan.outputs.json }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.14"
+
+    - name: Install OPA
+      shell: bash
+      run: |
+        curl -sSL -o /usr/local/bin/opa \
+          "https://openpolicyagent.org/downloads/v${{ inputs.opa-version }}/opa_linux_amd64_static"
+        chmod +x /usr/local/bin/opa
+
+    - name: Install Boundary
+      shell: bash
+      # editable install keeps the repo's policies/ directory as the policy root
+      run: |
+        pip install --quiet -e "${{ github.action_path }}/.."
+        echo "BOUNDARY_POLICY_ROOT=${{ github.action_path }}/../policies" >> "$GITHUB_ENV"
+
+    - name: Run scan
+      id: scan
+      shell: bash
+      env:
+        SCAN_PATH: ${{ inputs.path }}
+        SCAN_TARGETS: ${{ inputs.targets }}
+      run: |
+        ARGS=()
+        [ -n "$SCAN_TARGETS" ] && ARGS+=(--target "$SCAN_TARGETS")
+        boundary scan "$SCAN_PATH" "${ARGS[@]}" \
+          --format json --output boundary-results.json --fail-on NEVER
+        boundary scan "$SCAN_PATH" "${ARGS[@]}" \
+          --format sarif --output boundary-results.sarif --fail-on NEVER
+        boundary scan "$SCAN_PATH" "${ARGS[@]}" \
+          --format md --output boundary-summary.md --fail-on NEVER
+        cat boundary-summary.md >> "$GITHUB_STEP_SUMMARY"
+        echo "json=boundary-results.json" >> "$GITHUB_OUTPUT"
+
+    - name: Upload SARIF to Code Scanning
+      if: ${{ inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: boundary-results.sarif
+        category: boundary
+
+    - name: Enforce severity gate
+      shell: bash
+      env:
+        SCAN_PATH: ${{ inputs.path }}
+        SCAN_TARGETS: ${{ inputs.targets }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        ARGS=()
+        [ -n "$SCAN_TARGETS" ] && ARGS+=(--target "$SCAN_TARGETS")
+        boundary scan "$SCAN_PATH" "${ARGS[@]}" --format table --fail-on "$FAIL_ON"

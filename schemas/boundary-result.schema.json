@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/andyblooman/boundary/main/schemas/boundary-result.schema.json",
+  "title": "Boundary scan result",
+  "type": "object",
+  "required": ["boundary_version", "scan", "summary", "findings", "ai_context"],
+  "properties": {
+    "boundary_version": { "type": "string" },
+    "schema": { "type": "string" },
+    "scan": {
+      "type": "object",
+      "required": ["timestamp", "path", "targets_scanned", "policy_packs"],
+      "properties": {
+        "timestamp": { "type": "string" },
+        "duration_seconds": { "type": "number" },
+        "path": { "type": "string" },
+        "targets_scanned": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["kind", "path"],
+            "properties": {
+              "kind": { "$ref": "#/$defs/kind" },
+              "path": { "type": "string" }
+            }
+          }
+        },
+        "policy_packs": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "by_severity", "compliance"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "by_severity": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "compliance": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["violated_controls"],
+            "properties": {
+              "violated_controls": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "ai_context": {
+      "type": "object",
+      "required": ["purpose", "suggested_workflow"],
+      "properties": {
+        "purpose": { "type": "string" },
+        "suggested_workflow": { "type": "array", "items": { "type": "string" } },
+        "severity_order": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "kind": {
+      "enum": ["terraform", "docker", "kubernetes", "mcp", "skills"]
+    },
+    "severity": {
+      "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "severity", "title", "target"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^BND-[A-Z0-9]+-[0-9]{3}$" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "target": {
+          "type": "object",
+          "required": ["kind", "file"],
+          "properties": {
+            "kind": { "$ref": "#/$defs/kind" },
+            "file": { "type": "string" },
+            "line": { "type": "integer", "minimum": 0 },
+            "resource": { "type": "string" }
+          }
+        },
+        "observed": {},
+        "remediation": { "type": "string" },
+        "fix_hint": { "enum": ["add_block", "change_value", "remove_block", "review"] },
+        "compliance": {
+          "type": "object",
+          "additionalProperties": { "type": "array", "items": { "type": "string" } }
+        },
+        "references": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
