@@ -72,12 +72,17 @@ jobs:
 
       # Scan the known-bad fixtures and assert findings exist (the action
       # itself gates on HIGH, so we run with fail-on NEVER and check output).
+      # comment-on-pr: false -- this job's findings are about fixtures/, not
+      # this PR's actual diff; a "39 critical findings" comment here would be
+      # misleading noise, and the job has no pull-requests/issues permission
+      # to post one anyway.
       - name: Scan fixtures with the action
         uses: ./action
         with:
           path: fixtures
           fail-on: "NEVER"
           upload-sarif: "false"
+          comment-on-pr: "false"
 
       - name: Assert the scanner still finds the seeded issues
         run: |
