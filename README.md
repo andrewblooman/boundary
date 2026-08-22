@@ -84,7 +84,7 @@ By default the comment posts as `github-actions[bot]` (the job's
 token and pass it via `github-token`:
 
 ```yaml
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.BOUNDARY_APP_ID }}
