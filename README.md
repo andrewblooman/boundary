@@ -125,7 +125,7 @@ finding, proposes diffs driven by each finding's `fix_hint` and
 
 ## Policy framework
 
-51 built-in policies across five packs:
+55 built-in policies across five packs:
 
 | Pack | IDs | Examples |
 |---|---|---|

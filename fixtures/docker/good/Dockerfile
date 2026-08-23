@@ -4,6 +4,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 FROM node:22.12-alpine3.21
+LABEL org.opencontainers.image.source="https://github.com/example/app" \
+      org.opencontainers.image.version="1.2.3" \
+      org.opencontainers.image.description="Example application"
 WORKDIR /app
 COPY --from=build --chown=app:app /app /app
 RUN addgroup -S app && adduser -S app -G app

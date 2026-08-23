@@ -101,3 +101,15 @@ test_chmod_777_flagged if {
 test_chmod_755_ok if {
 	count(docker.world_writable.deny) == 0 with input as df([inst("RUN", "chmod 755 /app", 6)])
 }
+
+test_missing_oci_labels_flagged if {
+	count(docker.oci_labels.deny) == 1 with input as df([inst("FROM", "alpine:3.21", 1)])
+}
+
+test_complete_oci_labels_ok if {
+	count(docker.oci_labels.deny) == 0 with input as df([inst(
+		"LABEL",
+		`org.opencontainers.image.source="https://example.com/app" org.opencontainers.image.version="1.2.3" org.opencontainers.image.description="Example app"`,
+		2,
+	)])
+}

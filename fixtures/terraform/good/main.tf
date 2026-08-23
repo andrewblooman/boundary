@@ -75,3 +75,19 @@ resource "google_project_iam_member" "app_sql_client" {
 resource "google_service_account" "app" {
   account_id = "app-sa"
 }
+
+resource "aws_subnet" "private" {
+  vpc_id                  = "vpc-123"
+  cidr_block              = "10.0.2.0/24"
+  map_public_ip_on_launch = false
+}
+
+resource "aws_instance" "app" {
+  ami                         = "ami-123"
+  instance_type               = "t3.micro"
+  associate_public_ip_address = false
+
+  metadata_options {
+    http_tokens = "required"
+  }
+}
