@@ -4,6 +4,16 @@
 
 # Boundary
 
+<p align="center">
+  <img src="https://github.com/andrewblooman/boundary/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <img src="https://img.shields.io/badge/OPA-Rego-7B2FBE?logo=openpolicyagent&logoColor=white" alt="Open Policy Agent / Rego">
+  <img src="https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white" alt="Python 3.14">
+  <img src="https://img.shields.io/badge/Terraform-Docker-844FBA?logo=terraform&logoColor=white" alt="Terraform, Docker">
+  <img src="https://img.shields.io/badge/Kubernetes-MCP-326CE5?logo=kubernetes&logoColor=white" alt="Kubernetes, MCP">
+  <img src="https://img.shields.io/badge/Compliance-SOC%202%20%C2%B7%20DORA%20%C2%B7%20NIS2%20%C2%B7%20HIPAA-2E8B57" alt="SOC 2, DORA, NIS2, HIPAA">
+  <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0">
+</p>
+
 **AI-first policy-as-code security scanner built on [Open Policy Agent](https://www.openpolicyagent.org/).**
 
 Boundary scans infrastructure and agent definitions — Terraform, Dockerfiles,
