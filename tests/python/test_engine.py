@@ -12,6 +12,8 @@ EXPECTED = {
     "terraform": {
         "BND-TF-001", "BND-TF-002", "BND-TF-003", "BND-TF-004", "BND-TF-005",
         "BND-TF-006", "BND-TF-007", "BND-TF-008", "BND-TF-009", "BND-TF-010",
+        "BND-TF-011", "BND-TF-012", "BND-TF-013", "BND-TF-014", "BND-TF-015",
+        "BND-TF-016",
     },
     "docker": {
         "BND-DK-001", "BND-DK-002", "BND-DK-003", "BND-DK-004", "BND-DK-005",
