@@ -19,6 +19,7 @@ tf_config(provider_configs, backends, version) := {
 		"configurations": [{
 			"required_version": version,
 			"backends": backends,
+			"is_root": true,
 			"_src": {"file": "providers.tf", "line": 1, "name": "terraform"},
 		}],
 	},
@@ -303,6 +304,23 @@ test_remote_backend_accepts_gcs if {
 	)
 }
 
+test_remote_backend_ignores_child_modules if {
+	count(terraform.remote_backend.deny) == 0 with input as {
+		"kind": "terraform",
+		"source": "hcl",
+		"resources": [],
+		"providers": [],
+		"terraform": {
+			"configurations": [{
+				"required_version": ">= 1.15",
+				"backends": [],
+				"is_root": false,
+				"_src": {"file": "modules/service/versions.tf", "line": 1},
+			}],
+		},
+	}
+}
+
 test_s3_backend_locking_flags_dynamodb_and_missing_lock_file if {
 	count(terraform.s3_backend_locking.deny) == 2 with input as tf_config(
 		[], [
@@ -333,4 +351,12 @@ test_minimum_version_flags_older_version if {
 
 test_minimum_version_accepts_required_lower_bound if {
 	count(terraform.minimum_version.deny) == 0 with input as tf_config([], [], ">= 1.15, < 2.0")
+}
+
+test_minimum_version_accepts_strict_greater_than if {
+	count(terraform.minimum_version.deny) == 0 with input as tf_config([], [], "> 1.15")
+}
+
+test_minimum_version_accepts_exact_version if {
+	count(terraform.minimum_version.deny) == 0 with input as tf_config([], [], "== 1.15")
 }

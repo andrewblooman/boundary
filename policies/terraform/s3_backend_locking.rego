@@ -16,7 +16,7 @@
 #   remediation: |
 #     Set use_lockfile = true in each S3 backend block and remove any
 #     dynamodb_table setting.
-#   fix_hint: change_value
+#   fix_hint: review
 #   references:
 #     - https://developer.hashicorp.com/terraform/language/backend/s3#enabling-s3-state-locking
 package boundary.terraform.s3_backend_locking

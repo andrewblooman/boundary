@@ -31,5 +31,7 @@ deny contains finding if {
 }
 
 supports_1_15_or_later(version) if {
-	regex.match(`(^|,)\s*(>=|=|~>)?\s*(1\.(1[5-9]|[2-9][0-9])|[2-9][0-9]*(\.[0-9]+){0,2})(\.[0-9]+)?\s*(,|$)`, version)
+	operator := `(^|,)\s*(>=|>|==|=|~>)?\s*`
+	minimum := `(1\.(1[5-9]|[2-9][0-9])|[2-9][0-9]*(\.[0-9]+){0,2})(\.[0-9]+)?`
+	regex.match(sprintf("%s%s\\s*(,|$)", [operator, minimum]), version)
 }

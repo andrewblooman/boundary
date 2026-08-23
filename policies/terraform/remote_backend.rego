@@ -16,7 +16,7 @@
 #   remediation: |
 #     Configure a terraform backend "s3" or backend "gcs" block. Do not use
 #     the local backend for shared or production state.
-#   fix_hint: change_value
+#   fix_hint: review
 #   references:
 #     - https://developer.hashicorp.com/terraform/language/backend/s3
 #     - https://developer.hashicorp.com/terraform/language/backend/gcs
@@ -27,6 +27,7 @@ import data.boundary.lib
 deny contains finding if {
 	input.source == "hcl"
 	some config in input.terraform.configurations
+	config.is_root
 	count(config.backends) == 0
 	finding := lib.finding(rego.metadata.chain(), config, {"backend": "not configured"})
 }
@@ -34,6 +35,7 @@ deny contains finding if {
 deny contains finding if {
 	input.source == "hcl"
 	some config in input.terraform.configurations
+	config.is_root
 	some backend in config.backends
 	not backend.name in {"s3", "gcs"}
 	finding := lib.finding(rego.metadata.chain(), backend, {"backend": backend.name})
