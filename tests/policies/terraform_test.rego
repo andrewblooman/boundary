@@ -10,6 +10,21 @@ res(rtype, name, values) := {
 
 tf(resources) := {"kind": "terraform", "source": "hcl", "resources": resources}
 
+tf_config(provider_configs, backends, version) := {
+	"kind": "terraform",
+	"source": "hcl",
+	"resources": [],
+	"providers": provider_configs,
+	"terraform": {
+		"configurations": [{
+			"required_version": version,
+			"backends": backends,
+			"is_root": true,
+			"_src": {"file": "providers.tf", "line": 1, "name": "terraform"},
+		}],
+	},
+}
+
 test_s3_encryption_flags_bare_bucket if {
 	count(terraform.s3_encryption.deny) == 1 with input as tf([res("aws_s3_bucket", "b", {})])
 }
@@ -232,4 +247,116 @@ test_service_account_key_flagged if {
 
 test_no_service_account_key_ok if {
 	count(terraform.gcp_service_account_key.deny) == 0 with input as tf([res("google_service_account", "sa", {})])
+}
+
+test_aws_default_tags_flagged if {
+	count(terraform.aws_default_tags.deny) == 1 with input as tf_config(
+		[
+			{"name": "aws", "values": {}, "_src": {"file": "providers.tf", "line": 1}},
+		],
+		[], ">= 1.15",
+	)
+}
+
+test_aws_default_tags_ok if {
+	count(terraform.aws_default_tags.deny) == 0 with input as tf_config(
+		[
+			{
+				"name": "aws", "values": {"default_tags": [{"tags": {"environment": "prod"}}]},
+				"_src": {"file": "providers.tf", "line": 1},
+			},
+		],
+		[], ">= 1.15",
+	)
+}
+
+test_google_default_labels_flagged if {
+	count(terraform.google_default_labels.deny) == 1 with input as tf_config(
+		[
+			{"name": "google", "values": {}, "_src": {"file": "providers.tf", "line": 1}},
+		],
+		[], ">= 1.15",
+	)
+}
+
+test_google_default_labels_ok if {
+	count(terraform.google_default_labels.deny) == 0 with input as tf_config(
+		[
+			{
+				"name": "google", "values": {"default_labels": {"environment": "prod"}},
+				"_src": {"file": "providers.tf", "line": 1},
+			},
+		],
+		[], ">= 1.15",
+	)
+}
+
+test_remote_backend_flagged_when_missing if {
+	count(terraform.remote_backend.deny) == 1 with input as tf_config([], [], ">= 1.15")
+}
+
+test_remote_backend_accepts_gcs if {
+	count(terraform.remote_backend.deny) == 0 with input as tf_config(
+		[], [
+			{"name": "gcs", "values": {}, "_src": {"file": "providers.tf", "line": 1}},
+		],
+		">= 1.15",
+	)
+}
+
+test_remote_backend_ignores_child_modules if {
+	count(terraform.remote_backend.deny) == 0 with input as {
+		"kind": "terraform",
+		"source": "hcl",
+		"resources": [],
+		"providers": [],
+		"terraform": {
+			"configurations": [{
+				"required_version": ">= 1.15",
+				"backends": [],
+				"is_root": false,
+				"_src": {"file": "modules/service/versions.tf", "line": 1},
+			}],
+		},
+	}
+}
+
+test_s3_backend_locking_flags_dynamodb_and_missing_lock_file if {
+	count(terraform.s3_backend_locking.deny) == 2 with input as tf_config(
+		[], [
+			{
+				"name": "s3", "values": {"dynamodb_table": "locks"},
+				"_src": {"file": "providers.tf", "line": 1},
+			},
+		],
+		">= 1.15",
+	)
+}
+
+test_s3_backend_locking_accepts_lock_file if {
+	count(terraform.s3_backend_locking.deny) == 0 with input as tf_config(
+		[], [
+			{
+				"name": "s3", "values": {"use_lockfile": true},
+				"_src": {"file": "providers.tf", "line": 1},
+			},
+		],
+		">= 1.15",
+	)
+}
+
+test_minimum_version_flags_older_version if {
+	count(terraform.minimum_version.deny) == 1 with input as tf_config([], [], ">= 1.14")
+}
+
+test_minimum_version_accepts_required_lower_bound if {
+	count(terraform.minimum_version.deny) == 0 with input as tf_config([], [], ">= 1.15, < 2.0")
+}
+
+test_minimum_version_accepts_strict_greater_than if {
+	count(terraform.minimum_version.deny) == 0 with input as tf_config([], [], "> 1.15")
+}
+
+test_minimum_version_accepts_exact_version if {
+	count(terraform.minimum_version.deny) == 0 with input as tf_config([], [], "== 1.15")
 }

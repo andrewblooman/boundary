@@ -60,7 +60,99 @@ def test_terraform_plan_suppresses_hcl_double_scan(tmp_path):
     (tmp_path / "main.tf").write_text(
         'resource "aws_s3_bucket" "data" {\n  bucket = "corp-data"\n}\n')
     targets = terraform.discover(tmp_path)
-    assert [t.input_doc["source"] for t in targets] == ["plan"]
+    assert [t.input_doc["source"] for t in targets] == ["plan", "hcl"]
+    assert targets[1].input_doc["resources"] == []
+    assert targets[1].input_doc["terraform"]["configurations"][0]["is_root"] is True
+
+
+def test_terraform_hcl_parses_provider_and_backend_configuration(tmp_path):
+    (tmp_path / "providers.tf").write_text("""
+terraform {
+  required_version = ">= 1.15"
+  backend "s3" {
+    bucket       = "state"
+    use_lockfile = true
+  }
+}
+
+provider "aws" {
+  default_tags {
+    tags = { environment = "prod" }
+  }
+}
+
+provider "google" {
+  default_labels = { environment = "prod" }
+}
+""")
+    targets = terraform.discover(tmp_path)
+    assert len(targets) == 1
+    doc = targets[0].input_doc
+    config = doc["terraform"]["configurations"][0]
+    assert config["required_version"] == ">= 1.15"
+    assert config["backends"][0]["name"] == "s3"
+    assert config["backends"][0]["values"]["use_lockfile"] is True
+    providers = {provider["name"]: provider["values"] for provider in doc["providers"]}
+    assert providers["aws"]["default_tags"][0]["tags"]["environment"] == "prod"
+    assert providers["google"]["default_labels"]["environment"] == "prod"
+
+
+def test_terraform_hcl_merges_root_configuration_across_files(tmp_path):
+    (tmp_path / "legacy.tf").write_text("""
+terraform {
+  required_version = ">= 1.14"
+  backend "gcs" { bucket = "legacy-state" }
+}
+""")
+    (tmp_path / "current.tf").write_text("""
+terraform {
+  required_version = ">= 1.15"
+  backend "gcs" { bucket = "current-state" }
+}
+""")
+    targets = terraform.discover(tmp_path)
+    configs = targets[0].input_doc["terraform"]["configurations"]
+    assert len(configs) == 1
+    assert configs[0]["required_version"] == ">= 1.15, >= 1.14"
+    assert configs[0]["backends"][0]["name"] == "gcs"
+    assert configs[0]["is_root"] is True
+
+
+def test_terraform_hcl_marks_child_module_configuration(tmp_path):
+    (tmp_path / "main.tf").write_text("""
+terraform {
+  required_version = ">= 1.15"
+  backend "gcs" { bucket = "root-state" }
+}
+""")
+    child = tmp_path / "modules" / "service"
+    child.mkdir(parents=True)
+    (child / "versions.tf").write_text('terraform { required_version = ">= 1.15" }\n')
+    targets = terraform.discover(tmp_path)
+    configs = targets[0].input_doc["terraform"]["configurations"]
+    assert [config["is_root"] for config in configs] == [True, False]
+    assert [config["backends"] for config in configs] == [[
+        {"name": "gcs", "values": {"bucket": "root-state"}, "_src": {
+            "file": str(tmp_path / "main.tf"), "line": 4,
+        }},
+    ], []]
+
+
+def test_terraform_hcl_tracks_aliased_provider_lines(tmp_path):
+    providers_file = tmp_path / "providers.tf"
+    providers_file.write_text("""
+provider "aws" {}
+
+provider "aws" {
+  alias = "secondary"
+}
+""")
+    targets = terraform.discover(tmp_path)
+    providers = targets[0].input_doc["providers"]
+    assert [provider["_src"] for provider in providers] == [
+        {"file": str(providers_file), "line": 2},
+        {"file": str(providers_file), "line": 4},
+    ]
 
 
 def test_dockerfile_instructions_and_lines(fixtures):

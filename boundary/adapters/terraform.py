@@ -2,12 +2,13 @@
 
 Plan JSON (`terraform show -json plan.out`) has variables/modules resolved so
 it is the accurate path; raw .tf parsing (python-hcl2) works credential-free
-for pre-commit style scans. Both normalize to:
+for pre-commit style scans. HCL parsing also supplies provider and Terraform
+configuration metadata because plans do not include it. Targets normalize to:
 
     {"kind": "terraform", "resources": [
         {"type": "aws_s3_bucket", "name": "data", "address": "aws_s3_bucket.data",
          "values": {...}, "_src": {"file": "main.tf", "line": 12}}
-    ]}
+    ], "providers": [...], "terraform": {"configurations": [...]}}
 """
 
 from __future__ import annotations
@@ -35,10 +36,14 @@ def discover(root: Path):
             targets.append(_from_plan(path))
         elif path.suffix == ".tf":
             tf_files.append(path)
-    # Plan JSON is the resolved form of the same .tf files; scanning both
-    # would evaluate every policy twice and duplicate findings.
-    if tf_files and not any(targets):
-        targets.append(_from_hcl(tf_files, root))
+    if tf_files:
+        if targets:
+            # Plans omit provider and Terraform configuration metadata. Keep
+            # the plan target for resolved resources and add an HCL-only target
+            # so configuration policies still run without duplicate resources.
+            targets.append(_from_hcl(tf_files, root, include_resources=False))
+        else:
+            targets.append(_from_hcl(tf_files, root))
     return [t for t in targets if t is not None]
 
 
@@ -89,14 +94,22 @@ def _walk_planned(module: dict[str, Any]) -> list[dict[str, Any]]:
     return resources
 
 
-def _from_hcl(tf_files: list[Path], root: Path) -> ScanTarget | None:
+def _from_hcl(
+    tf_files: list[Path], root: Path, *, include_resources: bool = True
+) -> ScanTarget | None:
     resources = []
+    module_documents: dict[Path, list[tuple[Path, dict[str, Any]]]] = {}
+    root_module = root.parent if root.is_file() else root
+    root_module = root_module.resolve()
     for path in tf_files:
         try:
             with path.open() as fh:
                 doc = _load_hcl(fh)
         except Exception as exc:  # noqa: S112 - reported, then remaining files scanned
             print(f"boundary: warning: skipping unparseable {path}: {exc}", file=sys.stderr)
+            continue
+        module_documents.setdefault(path.parent.resolve(), []).append((path, doc))
+        if not include_resources:
             continue
         lines = _block_lines(path)
         for block in doc.get("resource", []):
@@ -117,13 +130,30 @@ def _from_hcl(tf_files: list[Path], root: Path) -> ScanTarget | None:
                         "values": clean,
                         "_src": {"file": str(path), "line": line},
                     })
-    if not resources:
+    providers = []
+    terraform_configurations = []
+    for module, docs in module_documents.items():
+        module_providers, configuration = _configuration(docs, module == root_module)
+        providers.extend(module_providers)
+        terraform_configurations.append(configuration)
+    terraform_config = {"configurations": terraform_configurations}
+    has_configuration = providers or terraform_configurations
+    if not resources and not has_configuration:
         return None
     return ScanTarget(kind="terraform", path=str(root),
-                      input_doc={"kind": "terraform", "source": "hcl", "resources": resources})
+                      input_doc={
+                          "kind": "terraform",
+                          "source": "hcl",
+                          "resources": resources,
+                          "providers": providers,
+                          "terraform": terraform_config,
+                      })
 
 
 _BLOCK_RE = re.compile(r'^\s*resource\s+"([^"]+)"\s+"([^"]+)"')
+_PROVIDER_RE = re.compile(r'^\s*provider\s+"([^"]+)"')
+_TERRAFORM_RE = re.compile(r"^\s*terraform\s*\{")
+_BACKEND_RE = re.compile(r'^\s*backend\s+"([^"]+)"')
 
 
 def _block_lines(path: Path) -> dict[tuple[str, str], int]:
@@ -137,6 +167,86 @@ def _block_lines(path: Path) -> dict[tuple[str, str], int]:
     except OSError:
         pass
     return lines
+
+
+def _configuration_lines(
+    tf_files: list[Path],
+) -> tuple[dict[tuple[str, str], list[tuple[str, int]]], tuple[str, int]]:
+    """Locations for provider/backend blocks and the first Terraform configuration."""
+    blocks: dict[tuple[str, str], list[tuple[str, int]]] = {}
+    default = (str(tf_files[0]), 1)
+    for path in tf_files:
+        try:
+            lines = path.read_text(errors="replace").splitlines()
+        except OSError:
+            continue
+        for lineno, text in enumerate(lines, 1):
+            provider = _PROVIDER_RE.match(text)
+            if provider:
+                blocks.setdefault(("provider", provider.group(1)), []).append((str(path), lineno))
+            backend = _BACKEND_RE.match(text)
+            if backend:
+                blocks.setdefault(("backend", backend.group(1)), []).append((str(path), lineno))
+            if _TERRAFORM_RE.match(text):
+                default = (str(path), lineno)
+    return blocks, default
+
+
+def _configuration(
+    documents: list[tuple[Path, dict[str, Any]]], is_root: bool
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Normalize one module's merged provider and Terraform configuration."""
+    paths = [path for path, _ in documents]
+    block_lines, terraform_location = _configuration_lines(paths)
+    block_offsets: dict[tuple[str, str], int] = {}
+
+    def block_location(kind: str, name: str) -> tuple[str, int]:
+        key = (kind, name)
+        locations = block_lines.get(key, [])
+        offset = block_offsets.get(key, 0)
+        block_offsets[key] = offset + 1
+        if offset < len(locations):
+            return locations[offset]
+        return terraform_location
+
+    providers = []
+    version_constraints = []
+    backends = []
+    config_source = terraform_location
+    for _, doc in documents:
+        for block in doc.get("provider", []):
+            for name, values in block.items():
+                if name.startswith("__"):
+                    continue
+                file, line = block_location("provider", name)
+                providers.append({
+                    "name": name,
+                    "values": _strip_meta(values or {}),
+                    "_src": {"file": file, "line": line},
+                })
+        for block in doc.get("terraform", []):
+            if block.get("required_version"):
+                version_constraints.append(str(block["required_version"]))
+                config_source = terraform_location
+            for backend in block.get("backend", []):
+                for name, values in backend.items():
+                    if name.startswith("__"):
+                        continue
+                    file, line = block_location("backend", name)
+                    backends.append({
+                        "name": name,
+                        "values": _strip_meta(values or {}),
+                        "_src": {"file": file, "line": line},
+                    })
+
+    config = {
+        "name": "terraform",
+        "is_root": is_root,
+        "required_version": ", ".join(version_constraints),
+        "backends": backends,
+        "_src": {"file": config_source[0], "line": config_source[1]},
+    }
+    return providers, config
 
 
 def _load_hcl(fh) -> dict[str, Any]:

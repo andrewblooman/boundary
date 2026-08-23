@@ -56,7 +56,11 @@ Rules:
 ## Input shapes (produced by the Python adapters)
 
 - `terraform`: `{"kind", "source": "plan"|"hcl", "resources": [{"type",
-  "name", "address", "mode", "values", "_src": {"file", "line"}}]}`
+  "name", "address", "mode", "values", "_src": {"file", "line"}}],
+  "providers": [{"name", "values", "_src"}], "terraform":
+  {"configurations": [{"required_version", "backends", "is_root", "_src"}]}}`.
+  Plan scans also emit an HCL-only target with empty `resources` so provider,
+  backend, and version policies can use source configuration.
 - `docker`: `{"kind", "file", "instructions": [{"cmd", "value", "line"}],
   "stages": [...]}`
 - `kubernetes`: `{"kind", "file", "objects": [{"apiVersion", "kind", "name",

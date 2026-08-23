@@ -13,7 +13,7 @@ EXPECTED = {
         "BND-TF-001", "BND-TF-002", "BND-TF-003", "BND-TF-004", "BND-TF-005",
         "BND-TF-006", "BND-TF-007", "BND-TF-008", "BND-TF-009", "BND-TF-010",
         "BND-TF-011", "BND-TF-012", "BND-TF-013", "BND-TF-014", "BND-TF-015",
-        "BND-TF-016",
+        "BND-TF-016", "BND-TF-017", "BND-TF-018", "BND-TF-020", "BND-TF-021",
     },
     "docker": {
         "BND-DK-001", "BND-DK-002", "BND-DK-003", "BND-DK-004", "BND-DK-005",
@@ -62,7 +62,7 @@ def test_findings_carry_metadata(fixtures):
 
 def test_policy_metadata_complete():
     entries = engine.load_policy_metadata()
-    assert len(entries) >= 40
+    assert len(entries) >= 51
     ids = [e["id"] for e in entries]
     assert len(ids) == len(set(ids)), "duplicate policy ids"
     for entry in entries:
