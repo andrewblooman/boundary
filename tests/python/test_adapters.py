@@ -63,6 +63,60 @@ def test_terraform_plan_suppresses_hcl_double_scan(tmp_path):
     assert [t.input_doc["source"] for t in targets] == ["plan"]
 
 
+def test_terraform_hcl_parses_provider_and_backend_configuration(tmp_path):
+    (tmp_path / "providers.tf").write_text("""
+terraform {
+  required_version = ">= 1.15"
+  backend "s3" {
+    bucket       = "state"
+    use_lockfile = true
+  }
+}
+
+provider "aws" {
+  default_tags {
+    tags = { environment = "prod" }
+  }
+}
+
+provider "google" {
+  default_labels = { environment = "prod" }
+}
+""")
+    targets = terraform.discover(tmp_path)
+    assert len(targets) == 1
+    doc = targets[0].input_doc
+    config = doc["terraform"]["configurations"][0]
+    assert config["required_version"] == ">= 1.15"
+    assert config["backends"][0]["name"] == "s3"
+    assert config["backends"][0]["values"]["use_lockfile"] is True
+    providers = {provider["name"]: provider["values"] for provider in doc["providers"]}
+    assert providers["aws"]["default_tags"][0]["tags"]["environment"] == "prod"
+    assert providers["google"]["default_labels"]["environment"] == "prod"
+
+
+def test_terraform_hcl_keeps_root_configurations_separate(tmp_path):
+    (tmp_path / "legacy.tf").write_text("""
+terraform {
+  required_version = ">= 1.14"
+  backend "gcs" { bucket = "legacy-state" }
+}
+""")
+    (tmp_path / "current.tf").write_text("""
+terraform {
+  required_version = ">= 1.15"
+  backend "gcs" { bucket = "current-state" }
+}
+""")
+    targets = terraform.discover(tmp_path)
+    configs = targets[0].input_doc["terraform"]["configurations"]
+    assert [config["required_version"] for config in configs] == [">= 1.15", ">= 1.14"]
+    assert [config["_src"]["file"] for config in configs] == [
+        str(tmp_path / "current.tf"),
+        str(tmp_path / "legacy.tf"),
+    ]
+
+
 def test_dockerfile_instructions_and_lines(fixtures):
     targets = dockerfile.discover(fixtures / "docker" / "bad")
     assert len(targets) == 1
