@@ -30,12 +30,18 @@ required_labels := {
 	"org.opencontainers.image.description",
 }
 
+escaped_labels := {
+	"org.opencontainers.image.source": `org\.opencontainers\.image\.source`,
+	"org.opencontainers.image.version": `org\.opencontainers\.image\.version`,
+	"org.opencontainers.image.description": `org\.opencontainers\.image\.description`,
+}
+
 deny contains finding if {
 	missing := {label | some label in required_labels; not has_label(label)}
 	count(missing) > 0
 	finding := lib.finding(
 		rego.metadata.chain(),
-		{"name": input.file, "_src": {"file": input.file, "line": 1}},
+		{"name": input.file, "_src": {"file": input.file, "line": last_from.line}},
 		{"missing_labels": sort(missing)},
 	)
 }
@@ -43,5 +49,15 @@ deny contains finding if {
 has_label(label) if {
 	some inst in input.instructions
 	inst.cmd == "LABEL"
-	regex.match(sprintf(`(?i)(^|\s)%s\s*=\s*("[^"]+"|'[^']+'|[^\s]+)`, [label]), inst.value)
+	inst.line > last_from.line
+	regex.match(label_pattern(label), inst.value)
 }
+
+froms := [i | some i in input.instructions; i.cmd == "FROM"]
+
+last_from := froms[count(froms) - 1]
+
+label_pattern(label) := sprintf(
+	`(?i)(^|\s)%s\s*=\s*("[^"]+"|'[^']+'|[^\s]+)`,
+	[escaped_labels[label]],
+)

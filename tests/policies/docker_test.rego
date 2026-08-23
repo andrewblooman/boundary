@@ -107,9 +107,35 @@ test_missing_oci_labels_flagged if {
 }
 
 test_complete_oci_labels_ok if {
-	count(docker.oci_labels.deny) == 0 with input as df([inst(
-		"LABEL",
-		`org.opencontainers.image.source="https://example.com/app" org.opencontainers.image.version="1.2.3" org.opencontainers.image.description="Example app"`,
-		2,
-	)])
+	count(docker.oci_labels.deny) == 0 with input as df([
+		inst("FROM", "alpine:3.21", 1),
+		inst(
+			"LABEL",
+			`org.opencontainers.image.source="https://example.com/app" org.opencontainers.image.version="1.2.3" org.opencontainers.image.description="Example app"`,
+			2,
+		),
+	])
+}
+
+test_build_stage_oci_labels_do_not_cover_final_image if {
+	count(docker.oci_labels.deny) == 1 with input as df([
+		inst("FROM", "golang:1.23 AS build", 1),
+		inst(
+			"LABEL",
+			`org.opencontainers.image.source="https://example.com/app" org.opencontainers.image.version="1.2.3" org.opencontainers.image.description="Build image"`,
+			2,
+		),
+		inst("FROM", "alpine:3.21", 3),
+	])
+}
+
+test_oci_label_name_requires_literal_dots if {
+	count(docker.oci_labels.deny) == 1 with input as df([
+		inst("FROM", "alpine:3.21", 1),
+		inst(
+			"LABEL",
+			`orgXopencontainersXimageXsource="https://example.com/app" org.opencontainers.image.version="1.2.3" org.opencontainers.image.description="Example app"`,
+			2,
+		),
+	])
 }
