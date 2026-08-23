@@ -83,3 +83,21 @@ resource "google_project_iam_member" "dev_owner" {
 resource "google_service_account_key" "app_key" {
   service_account_id = "app-sa"
 }
+
+resource "aws_subnet" "public" {
+  vpc_id                  = "vpc-123"
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+}
+
+resource "aws_instance" "web" {
+  ami                         = "ami-123"
+  instance_type               = "t3.micro"
+  associate_public_ip_address = true
+}
+
+resource "google_project_iam_member" "service_account_admin" {
+  project = "my-project"
+  role    = "roles/iam.serviceAccountAdmin"
+  member  = "serviceAccount:app@my-project.iam.gserviceaccount.com"
+}

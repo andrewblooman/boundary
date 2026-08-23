@@ -172,6 +172,21 @@ def test_dockerfile_continuations(tmp_path):
     assert run["line"] == 2
 
 
+def test_dockerfile_multiline_oci_labels(tmp_path):
+    dockerfile_path = tmp_path / "Dockerfile"
+    dockerfile_path.write_text(
+        'FROM alpine:3.21\n'
+        'LABEL org.opencontainers.image.source="https://example.com/app" \\\n'
+        '      org.opencontainers.image.version="1.2.3" \\\n'
+        '      org.opencontainers.image.description="Example application"\n'
+    )
+    targets = dockerfile.discover(tmp_path)
+    label = targets[0].input_doc["instructions"][1]
+    assert label["cmd"] == "LABEL"
+    assert label["line"] == 2
+    assert "org.opencontainers.image.description" in label["value"]
+
+
 def test_dockerfile_multistage_stages(fixtures):
     targets = dockerfile.discover(fixtures / "docker" / "good")
     assert targets[0].input_doc["stages"] == ["build"]

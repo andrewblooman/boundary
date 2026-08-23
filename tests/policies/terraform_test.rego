@@ -360,3 +360,53 @@ test_minimum_version_accepts_strict_greater_than if {
 test_minimum_version_accepts_exact_version if {
 	count(terraform.minimum_version.deny) == 0 with input as tf_config([], [], "== 1.15")
 }
+
+test_public_subnet_flagged if {
+	count(terraform.ec2_public_ip.deny) == 1 with input as tf([res("aws_subnet", "public", {"map_public_ip_on_launch": true})])
+}
+
+test_public_ec2_instance_flagged if {
+	count(terraform.ec2_public_ip.deny) == 1 with input as tf([res("aws_instance", "web", {"associate_public_ip_address": true})])
+}
+
+test_private_ec2_networking_ok if {
+	count(terraform.ec2_public_ip.deny) == 0 with input as tf([
+		res("aws_subnet", "private", {"map_public_ip_on_launch": false}),
+		res("aws_instance", "app", {"associate_public_ip_address": false}),
+	])
+}
+
+test_imdsv2_missing_flagged if {
+	count(terraform.ec2_imdsv2.deny) == 1 with input as tf([res("aws_instance", "app", {})])
+}
+
+test_imdsv2_required_ok if {
+	count(terraform.ec2_imdsv2.deny) == 0 with input as tf([res("aws_instance", "app", {"metadata_options": [{"http_tokens": "required"}]})])
+}
+
+test_service_account_admin_role_flagged if {
+	count(terraform.gcp_service_account_admin.deny) == 1 with input as tf([res(
+		"google_project_iam_member", "admin",
+		{
+			"role": "roles/iam.serviceAccountAdmin",
+			"member": "serviceAccount:app@my-project.iam.gserviceaccount.com",
+		},
+	)])
+}
+
+test_service_account_token_creator_binding_flagged if {
+	count(terraform.gcp_service_account_admin.deny) == 1 with input as tf([res(
+		"google_project_iam_binding", "token_creator",
+		{
+			"role": "roles/iam.serviceAccountTokenCreator",
+			"members": ["serviceAccount:app@my-project.iam.gserviceaccount.com"],
+		},
+	)])
+}
+
+test_sensitive_iam_role_for_human_not_flagged if {
+	count(terraform.gcp_service_account_admin.deny) == 0 with input as tf([res(
+		"google_project_iam_member", "admin",
+		{"role": "roles/iam.serviceAccountAdmin", "member": "user:admin@example.com"},
+	)])
+}
