@@ -153,6 +153,13 @@ test_sql_no_ssl_flagged if {
 	)])
 }
 
+test_sql_no_ssl_flagged_when_block_missing if {
+	count(terraform.gcp_sql_require_ssl.deny) == 1 with input as tf([res(
+		"google_sql_database_instance", "db",
+		{"settings": [{}]},
+	)])
+}
+
 test_sql_encrypted_only_ok if {
 	count(terraform.gcp_sql_require_ssl.deny) == 0 with input as tf([res(
 		"google_sql_database_instance", "db",

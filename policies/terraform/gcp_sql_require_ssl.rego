@@ -37,3 +37,13 @@ deny contains finding if {
 	not lib.is_true(object.get(ipcfg, "require_ssl", false))
 	finding := lib.finding(rego.metadata.chain(), res, {"ssl_mode": mode})
 }
+
+# ip_configuration itself defaults to allowing plaintext connections when the
+# block is omitted entirely, not just when ssl_mode is left unset inside it.
+deny contains finding if {
+	some res in input.resources
+	res.type == "google_sql_database_instance"
+	some setting in lib.as_array(object.get(res.values, "settings", []))
+	count(lib.as_array(object.get(setting, "ip_configuration", []))) == 0
+	finding := lib.finding(rego.metadata.chain(), res, {"ip_configuration": "not set (defaults to unencrypted allowed)"})
+}
