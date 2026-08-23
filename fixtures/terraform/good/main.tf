@@ -39,3 +39,39 @@ resource "aws_ebs_volume" "vol" {
   size      = 40
   encrypted = true
 }
+
+resource "google_sql_database_instance" "postgres" {
+  name             = "app-db"
+  database_version = "POSTGRES_15"
+
+  settings {
+    tier = "db-f1-micro"
+
+    ip_configuration {
+      ipv4_enabled = false
+      ssl_mode     = "ENCRYPTED_ONLY"
+    }
+  }
+}
+
+resource "google_compute_firewall" "allow_internal" {
+  name    = "allow-internal"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["10.0.0.0/24"]
+}
+
+resource "google_project_iam_member" "app_sql_client" {
+  project = "my-project"
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:app@my-project.iam.gserviceaccount.com"
+}
+
+resource "google_service_account" "app" {
+  account_id = "app-sa"
+}

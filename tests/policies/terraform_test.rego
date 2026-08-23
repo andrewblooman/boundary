@@ -122,3 +122,114 @@ test_finding_shape_carries_metadata if {
 	f.target.file == "main.tf"
 	f.fix_hint == "add_block"
 }
+
+# --- GCP policies ---
+
+test_sql_public_ip_flagged_when_true if {
+	count(terraform.gcp_sql_public_ip.deny) == 1 with input as tf([res(
+		"google_sql_database_instance", "db",
+		{"settings": [{"ip_configuration": [{"ipv4_enabled": true}]}]},
+	)])
+}
+
+test_sql_public_ip_flagged_when_block_missing if {
+	count(terraform.gcp_sql_public_ip.deny) == 1 with input as tf([res(
+		"google_sql_database_instance", "db",
+		{"settings": [{}]},
+	)])
+}
+
+test_sql_private_ip_ok if {
+	count(terraform.gcp_sql_public_ip.deny) == 0 with input as tf([res(
+		"google_sql_database_instance", "db",
+		{"settings": [{"ip_configuration": [{"ipv4_enabled": false}]}]},
+	)])
+}
+
+test_sql_no_ssl_flagged if {
+	count(terraform.gcp_sql_require_ssl.deny) == 1 with input as tf([res(
+		"google_sql_database_instance", "db",
+		{"settings": [{"ip_configuration": [{"ssl_mode": "ALLOW_UNENCRYPTED_AND_ENCRYPTED"}]}]},
+	)])
+}
+
+test_sql_no_ssl_flagged_when_block_missing if {
+	count(terraform.gcp_sql_require_ssl.deny) == 1 with input as tf([res(
+		"google_sql_database_instance", "db",
+		{"settings": [{}]},
+	)])
+}
+
+test_sql_encrypted_only_ok if {
+	count(terraform.gcp_sql_require_ssl.deny) == 0 with input as tf([res(
+		"google_sql_database_instance", "db",
+		{"settings": [{"ip_configuration": [{"ssl_mode": "ENCRYPTED_ONLY"}]}]},
+	)])
+}
+
+test_firewall_open_ingress_flagged if {
+	count(terraform.gcp_firewall_open_ingress.deny) == 1 with input as tf([res(
+		"google_compute_firewall", "fw",
+		{"direction": "INGRESS", "source_ranges": ["0.0.0.0/0"], "allow": [{"protocol": "tcp", "ports": ["22"]}]},
+	)])
+}
+
+test_firewall_scoped_ingress_ok if {
+	count(terraform.gcp_firewall_open_ingress.deny) == 0 with input as tf([res(
+		"google_compute_firewall", "fw",
+		{"direction": "INGRESS", "source_ranges": ["10.0.0.0/24"], "allow": [{"protocol": "tcp", "ports": ["22"]}]},
+	)])
+}
+
+test_firewall_deny_rule_open_ok if {
+	count(terraform.gcp_firewall_open_ingress.deny) == 0 with input as tf([res(
+		"google_compute_firewall", "fw",
+		{"direction": "INGRESS", "source_ranges": ["0.0.0.0/0"], "deny": [{"protocol": "all"}]},
+	)])
+}
+
+test_iam_member_public_flagged if {
+	count(terraform.gcp_iam_public_member.deny) == 1 with input as tf([res(
+		"google_storage_bucket_iam_member", "m",
+		{"member": "allUsers", "role": "roles/storage.objectViewer"},
+	)])
+}
+
+test_iam_binding_public_flagged if {
+	count(terraform.gcp_iam_public_member.deny) == 1 with input as tf([res(
+		"google_project_iam_binding", "b",
+		{"members": ["allAuthenticatedUsers"], "role": "roles/viewer"},
+	)])
+}
+
+test_iam_member_scoped_ok if {
+	count(terraform.gcp_iam_public_member.deny) == 0 with input as tf([res(
+		"google_project_iam_member", "m",
+		{"member": "serviceAccount:app@proj.iam.gserviceaccount.com", "role": "roles/logging.logWriter"},
+	)])
+}
+
+test_iam_primitive_owner_flagged if {
+	count(terraform.gcp_iam_primitive_role.deny) == 1 with input as tf([res(
+		"google_project_iam_member", "m",
+		{"member": "user:dev@example.com", "role": "roles/owner"},
+	)])
+}
+
+test_iam_scoped_role_ok if {
+	count(terraform.gcp_iam_primitive_role.deny) == 0 with input as tf([res(
+		"google_project_iam_member", "m",
+		{"member": "serviceAccount:app@proj.iam.gserviceaccount.com", "role": "roles/cloudsql.client"},
+	)])
+}
+
+test_service_account_key_flagged if {
+	count(terraform.gcp_service_account_key.deny) == 1 with input as tf([res(
+		"google_service_account_key", "k",
+		{"service_account_id": "app-sa"},
+	)])
+}
+
+test_no_service_account_key_ok if {
+	count(terraform.gcp_service_account_key.deny) == 0 with input as tf([res("google_service_account", "sa", {})])
+}

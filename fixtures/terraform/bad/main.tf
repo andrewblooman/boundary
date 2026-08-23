@@ -41,3 +41,45 @@ resource "aws_lb_listener" "http" {
     type = "forward"
   }
 }
+
+resource "google_sql_database_instance" "postgres" {
+  name             = "app-db"
+  database_version = "POSTGRES_15"
+
+  settings {
+    tier = "db-f1-micro"
+
+    ip_configuration {
+      ipv4_enabled = true
+      ssl_mode     = "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
+    }
+  }
+}
+
+resource "google_compute_firewall" "allow_ssh" {
+  name    = "allow-ssh"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+}
+
+resource "google_project_iam_member" "public_viewer" {
+  project = "my-project"
+  role    = "roles/viewer"
+  member  = "allUsers"
+}
+
+resource "google_project_iam_member" "dev_owner" {
+  project = "my-project"
+  role    = "roles/owner"
+  member  = "user:dev@example.com"
+}
+
+resource "google_service_account_key" "app_key" {
+  service_account_id = "app-sa"
+}
