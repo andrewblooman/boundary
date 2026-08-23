@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/image.jpg" alt="Boundary — the AI-driven security boundary of the datacenter, policy-as-code built on OPA" width="820">
+</p>
+
 # Boundary
 
 **AI-first policy-as-code security scanner built on [Open Policy Agent](https://www.openpolicyagent.org/).**
